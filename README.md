@@ -1,32 +1,41 @@
-# Timezone Planner 🕐
+# Zonely 🌐
 
-A small, private web app to see the same moment across up to 5 timezones — with
-day-of-week and **day-rollover** made obvious. Built for a Philippines → Vancouver →
-Toronto trip while keeping a 2 PM – 10 PM PHT work block.
+A timezone planner for people who work across zones. Plan your day and see every
+event — meetings, shifts, flights — in each place at once, with day rollovers made
+obvious.
+
+**Live:** https://timezone-planner-flame.vercel.app
+
+Everything is stored privately in your browser (localStorage). No accounts, no
+backend, nothing leaves your device.
 
 ## Features
 
-- **Live zone bar** — current time/date/offset for Manila, Vancouver, Toronto (add/remove up to 5).
-- **Convert a specific time** — pick a date + time in one zone, see it everywhere, with
-  "prev day / next day" badges when the calendar date differs.
-- **Work hours band** — shows where your 2–10 PM PHT block lands in every zone
-  (e.g. Vancouver 11 PM–7 AM, Toronto 2–10 AM), including overnight rollover.
-- **Schedule (Google-Calendar style)** — add events manually in any zone; view them as:
-  - **Day** — a per-zone hour grid (one column per timezone).
-  - **Week** — a 7-day calendar laid out in your base zone, with clickable day headers
-    that jump into the Day view; navigate weeks with ‹ ›.
-  - **List** — each event once, converted across every zone.
-
-  **Drag any event block to reschedule it** — drag vertically (Day or Week) to change
-  the time in 15-minute steps, or horizontally in Week view to move it to another day.
-  Click an event to edit or delete it.
-
-  Saved privately in your browser (localStorage) — nothing leaves your device.
-
-- **Backup (Export / Import)** — since data is per-browser, use **Export** to download a
-  JSON backup of all events + settings, and **Import** on another device/browser to restore
-  them (imported events merge by id). Handy for moving between your laptop and phone.
-- **Trip awareness** — knows where you are on a given date and can set that as the base zone.
+- **Multiple zones (up to 5).** Pick any IANA timezone via a searchable picker
+  (search by city or country). Live clocks, dates, and UTC offsets; tap a zone to
+  make it your **base**. DST is handled automatically.
+- **Convert a time.** Enter a date + time in one zone and see it everywhere, with
+  clear "prev day / next day" badges when the calendar date differs.
+- **Work-hours band.** Shade your working hours across every zone (incl. overnight
+  rollovers), on the specific **weekdays** you choose.
+- **Schedule — Day / Week / Month.**
+  - **Day:** one column per zone; each column shows the event in its own local time,
+    with a marker where that zone's date rolls over.
+  - **Week:** Sun–Sat grid in your base zone; navigate weeks, click a day to open it.
+  - **Month:** overview grid with colored event chips; click a day to jump in.
+  - Overlapping events lay out **side-by-side** (Google-Calendar style), and a small
+    right gap lets you click/long-press to add another event at the same time.
+- **Events.** Add by clicking/dragging on the grid or the **+ Add event** button.
+  Set start/end (any duration, crossing midnight OK), a color and opacity, and a
+  cross-zone summary shows the span in every zone. Drag to reschedule; each card
+  shows start → end and duration.
+- **Recurring events.** Daily, every weekday, or weekly on chosen days, with an
+  optional end date. Edits and deletes are scoped: **this event / this and
+  following / all events** — just like Google Calendar.
+- **Trip editor.** Add legs (location + zone + date range); the "You're in …" badge
+  and one-click "Use … time" follow your itinerary.
+- **Backup & reset.** Export/Import your data as JSON to move between devices, or
+  Clear all to start fresh.
 
 ## Run locally
 
@@ -37,40 +46,18 @@ npm run dev
 
 Open http://localhost:5173
 
-## Deploy to Vercel
-
-The app is a static site — Vercel auto-detects Vite (build `npm run build`, output `dist/`).
-
-**Option A — CLI (fastest):**
+## Build & deploy
 
 ```bash
-npm i -g vercel
-vercel        # first run: logs you in + links the project
-vercel --prod # deploy to your production URL
+npm run build      # type-checks then builds to dist/
 ```
 
-**Option B — GitHub + Vercel dashboard:**
-
-1. Push this folder to a GitHub repo.
-2. In the Vercel dashboard: **Add New → Project → Import** the repo.
-3. Framework preset **Vite** is detected automatically. Click **Deploy**.
-
-You'll get a private URL you can open from any device while traveling.
-
-## Editing your trip
-
-Trip dates and locations live in [`src/lib/itinerary.ts`](src/lib/itinerary.ts) — edit
-there if plans change.
-
-## Later: Google Calendar (Phase 2)
-
-Deferred by choice. The safe options when you're ready:
-
-- **Read-only Google sign-in** (`calendar.readonly`) via Google Identity Services, token
-  held client-side — nothing stored on any server.
-- **`.ics` import** — export from Google Calendar and drag the file in. No login at all.
+It's a static site — deploy `dist/` anywhere. This one runs on Vercel; with the
+Vercel CLI you can `vercel --prod` from the project root, or connect the GitHub repo
+in the Vercel dashboard for automatic deploys on push.
 
 ## Tech
 
 Vite + React + TypeScript, [Luxon](https://moment.github.io/luxon/) for timezone math
-using IANA zone names (DST handled automatically). No backend, no accounts, no tracking.
+(IANA zones, DST-aware). No backend, no tracking; state lives in `localStorage` and is
+validated on load so a bad import can't break the app.

@@ -10,7 +10,11 @@ import type { AppSettings, CalEvent, Recurrence, TripLeg, WorkBand, Zone } from 
 const isStr = (v: unknown): v is string => typeof v === "string";
 const isObj = (v: unknown): v is Record<string, unknown> =>
   typeof v === "object" && v !== null;
-const validTime = (v: unknown): v is string => isStr(v) && /^\d{2}:\d{2}$/.test(v);
+const validTime = (v: unknown): v is string => {
+  if (!isStr(v) || !/^\d{2}:\d{2}$/.test(v)) return false;
+  const [h, m] = v.split(":").map(Number);
+  return h >= 0 && h <= 23 && m >= 0 && m <= 59;
+};
 const validDate = (v: unknown): v is string =>
   isStr(v) && /^\d{4}-\d{2}-\d{2}$/.test(v) && DateTime.fromISO(v).isValid;
 const validZone = (v: unknown): v is string => isStr(v) && IANAZone.isValidZone(v);

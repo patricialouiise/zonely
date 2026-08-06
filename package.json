@@ -1,7 +1,10 @@
 {
-  "name": "timezone-planner",
+  "name": "zonely",
   "private": true,
   "version": "1.0.0",
+  "description": "A timezone planner for working across zones — see every event in each place at once.",
+  "author": "Patricia Louise Ramos",
+  "license": "MIT",
   "type": "module",
   "scripts": {
     "dev": "vite",

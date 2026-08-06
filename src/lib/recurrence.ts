@@ -151,6 +151,10 @@ function shiftWeekday(wd: number, days: number): number {
   return (((wd - 1 + days) % 7) + 7) % 7 + 1;
 }
 
+function addDaysISO(iso: string, days: number): string {
+  return DateTime.fromISO(iso).plus({ days }).toFormat("yyyy-LL-dd");
+}
+
 /** When a whole weekly series is dragged by whole days, shift its weekdays too. */
 function shiftRecurrenceWeekdays(rec: Recurrence | undefined, days: number): Recurrence | undefined {
   if (!rec || !days || rec.freq !== "weekly" || !rec.byWeekday) return rec;
@@ -158,6 +162,13 @@ function shiftRecurrenceWeekdays(rec: Recurrence | undefined, days: number): Rec
     ...rec,
     byWeekday: rec.byWeekday.map((wd) => shiftWeekday(wd, days)).sort((a, b) => a - b),
   };
+}
+
+/** Shift a whole recurrence (weekdays + `until`) by N days. */
+function shiftRecurrenceDays(rec: Recurrence | undefined, days: number): Recurrence | undefined {
+  if (!rec || !days) return rec;
+  const shifted = shiftRecurrenceWeekdays(rec, days) ?? rec;
+  return shifted.until ? { ...shifted, until: addDaysISO(shifted.until, days) } : shifted;
 }
 
 /** Exdates that belong to the new (>= cut) series after a "following" split. */
@@ -331,18 +342,33 @@ export function applyMoveScope(
     return [...events.filter((e) => !(e.seriesId === sid && e.recurDate === recDate)), override];
   }
   if (scope === "all") {
-    return events.map((e) =>
-      e.id === sid
-        ? {
-            ...e,
-            date: delta.days ? shiftFields(e, delta, baseZoneId).date : e.date,
-            time: sh.time,
-            recurrence: shiftRecurrenceWeekdays(e.recurrence, delta.days),
-          }
-        : e
-    );
+    const d = delta.days;
+    return events.map((e) => {
+      if (e.id === sid) {
+        // shift the master's anchor, weekdays, until, and exceptions together
+        return {
+          ...e,
+          date: d ? shiftFields(e, delta, baseZoneId).date : e.date,
+          time: sh.time,
+          recurrence: shiftRecurrenceDays(e.recurrence, d),
+          exdates: d ? e.exdates?.map((x) => addDaysISO(x, d)) : e.exdates,
+        };
+      }
+      if (e.seriesId === sid) {
+        // carry overrides along by the same shift
+        const os = shiftFields(e, delta, baseZoneId);
+        return {
+          ...e,
+          date: os.date,
+          time: os.time,
+          recurDate: e.recurDate && d ? addDaysISO(e.recurDate, d) : e.recurDate,
+        };
+      }
+      return e;
+    });
   }
   // following
+  const d = delta.days;
   const newId = uid();
   const newMaster: CalEvent = {
     id: newId,
@@ -354,19 +380,27 @@ export function applyMoveScope(
     note: occ.event.note,
     color: occ.event.color,
     opacity: occ.event.opacity,
-    recurrence: shiftRecurrenceWeekdays(master?.recurrence, delta.days),
-    exdates: futureExdates(master, recDate),
+    recurrence: shiftRecurrenceDays(master?.recurrence, d),
+    exdates: futureExdates(master, recDate).map((x) => addDaysISO(x, d)),
   };
   const updated = events.map((e) => {
     if (e.id === sid) {
       return {
         ...e,
-        exdates: (e.exdates ?? []).filter((d) => d < recDate),
+        exdates: (e.exdates ?? []).filter((x) => x < recDate),
         recurrence: { ...e.recurrence!, until: dayBefore(recDate) },
       };
     }
     if (e.seriesId === sid && e.recurDate && e.recurDate >= recDate) {
-      return { ...e, seriesId: newId };
+      // retarget to the new series and shift by the same drag delta
+      const os = shiftFields(e, delta, baseZoneId);
+      return {
+        ...e,
+        seriesId: newId,
+        date: os.date,
+        time: os.time,
+        recurDate: addDaysISO(e.recurDate, d),
+      };
     }
     return e;
   });

@@ -206,7 +206,7 @@ export default function App() {
   // ---- Backup: export/import as JSON ----
   function exportData() {
     const payload = {
-      app: "timezone-planner",
+      app: "zonely",
       version: 1,
       exportedAt: new Date().toISOString(),
       events,
@@ -216,7 +216,7 @@ export default function App() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `timezone-planner-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    a.download = `zonely-backup-${new Date().toISOString().slice(0, 10)}.json`;
     document.body.appendChild(a);
     a.click();
     a.remove();
