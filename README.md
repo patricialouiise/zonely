@@ -36,6 +36,9 @@ backend, nothing leaves your device.
   and one-click "Use … time" follow your itinerary.
 - **Backup & reset.** Export/Import your data as JSON to move between devices, or
   Clear all to start fresh.
+- **Installable (PWA).** Add it to your home screen / desktop and it opens like a
+  native app and works **offline**. Data stays local per install (use Export/Import
+  to move it between devices).
 
 ## Run locally
 
