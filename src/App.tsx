@@ -26,6 +26,7 @@ import DayView, { type CreateAt } from "./components/DayView";
 import WeekView from "./components/WeekView";
 import MonthView from "./components/MonthView";
 import CollapsibleCard from "./components/CollapsibleCard";
+import MeetingFinder from "./components/MeetingFinder";
 import TripEditor from "./components/TripEditor";
 import EventForm from "./components/EventForm";
 import ScopeDialog from "./components/ScopeDialog";
@@ -52,6 +53,7 @@ export default function App() {
   const [openCards, setOpenCards] = useState({
     zones: true,
     work: true,
+    meeting: true,
     convert: true,
     trip: false,
   });
@@ -325,6 +327,19 @@ export default function App() {
               band={settings.workBand}
               date={selectedDate}
               onChange={(workBand) => updateSettings({ workBand })}
+            />
+          </CollapsibleCard>
+
+          <CollapsibleCard
+            title="Find a time"
+            open={openCards.meeting}
+            onToggle={() => toggleCard("meeting")}
+          >
+            <MeetingFinder
+              zones={settings.zones}
+              baseZoneId={settings.baseZoneId}
+              date={selectedDate}
+              onCreateAt={handleCreateAt}
             />
           </CollapsibleCard>
 

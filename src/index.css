@@ -253,6 +253,14 @@ input:focus, select:focus {
 .daydiff.up { background: var(--up-bg); color: var(--up); }
 .daydiff.down { background: var(--down-bg); color: var(--down); }
 
+/* ---- meeting finder ---- */
+.finder-results { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+.finder-window { border: 1px solid var(--border); border-radius: 10px; padding: 8px 10px; background: var(--panel-2); }
+.finder-window__head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.finder-window__base { font-weight: 700; font-size: 14px; }
+.finder-window__head .btn { margin-left: auto; }
+.finder-window__zones { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 4px; }
+
 /* ---- day controls ---- */
 .dayctrls { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin: 4px 0 12px; }
 .tripbadge { display: inline-flex; align-items: center; gap: 8px; background: var(--accent-soft); color: var(--accent); border-radius: 999px; padding: 4px 12px; font-size: 13px; font-weight: 600; }
