@@ -32,6 +32,27 @@ import EventForm from "./components/EventForm";
 import ScopeDialog from "./components/ScopeDialog";
 import { zoneById } from "./lib/zones";
 
+const PANELS_KEY = "tzp.panels.v1";
+type PanelKey = "zones" | "work" | "meeting" | "convert" | "trip";
+const DEFAULT_PANELS: Record<PanelKey, boolean> = {
+  zones: false,
+  work: false,
+  meeting: false,
+  convert: false,
+  trip: false,
+};
+
+/** Sidebar cards start collapsed; the open/closed state is remembered. */
+function loadPanels(): Record<PanelKey, boolean> {
+  try {
+    const raw = localStorage.getItem(PANELS_KEY);
+    if (!raw) return DEFAULT_PANELS;
+    return { ...DEFAULT_PANELS, ...JSON.parse(raw) };
+  } catch {
+    return DEFAULT_PANELS;
+  }
+}
+
 /** A recurring change awaiting the user's this/following/all choice. */
 type PendingScope =
   | { kind: "edit"; occ: Occurrence; draft: EventDraft }
@@ -50,13 +71,7 @@ export default function App() {
   const [editingOcc, setEditingOcc] = useState<Occurrence | null>(null);
   const [createDefaults, setCreateDefaults] = useState<CreateAt | null>(null);
   const [pending, setPending] = useState<PendingScope | null>(null);
-  const [openCards, setOpenCards] = useState({
-    zones: true,
-    work: true,
-    meeting: true,
-    convert: true,
-    trip: false,
-  });
+  const [openCards, setOpenCards] = useState<Record<PanelKey, boolean>>(loadPanels);
   const [notice, setNotice] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const hydrated = useRef(false);
@@ -101,6 +116,13 @@ export default function App() {
   useEffect(() => {
     if (hydrated.current) saveEvents(events);
   }, [events]);
+  useEffect(() => {
+    try {
+      localStorage.setItem(PANELS_KEY, JSON.stringify(openCards));
+    } catch {
+      /* ignore */
+    }
+  }, [openCards]);
 
   const leg = useMemo(
     () => (selectedDate ? legForDate(selectedDate, settings.trip) : null),
