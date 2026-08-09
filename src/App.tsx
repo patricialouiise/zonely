@@ -73,6 +73,7 @@ export default function App() {
   const [pending, setPending] = useState<PendingScope | null>(null);
   const [openCards, setOpenCards] = useState<Record<PanelKey, boolean>>(loadPanels);
   const [notice, setNotice] = useState<string | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const hydrated = useRef(false);
 
@@ -310,8 +311,28 @@ export default function App() {
 
   if (!selectedDate) return null; // wait for mount init
 
+  const baseZone = settings.zones.find((z) => z.id === settings.baseZoneId);
+
   return (
     <div className="app">
+      <div className="topbar">
+        <button
+          className="topbar__menu"
+          onClick={() => setDrawerOpen(true)}
+          aria-label="Open zones & tools"
+        >
+          ☰
+        </button>
+        <button className="topbar__base" onClick={() => setDrawerOpen(true)} title="Zones & tools">
+          <span className="flag">{baseZone?.flag}</span>
+          <span className="topbar__zone">{baseZone?.label}</span>
+          <b>{now.setZone(settings.baseZoneId).toFormat("h:mm a")}</b>
+        </button>
+        <span className="topbar__brand">🌐 Zonely</span>
+      </div>
+
+      {drawerOpen && <div className="drawer-backdrop" onClick={() => setDrawerOpen(false)} />}
+
       <header className="app__header">
         <div>
           <h1>🌐 Zonely</h1>
@@ -323,7 +344,17 @@ export default function App() {
       </header>
 
       <div className="layout">
-        <aside className="sidebar">
+        <aside className={"sidebar" + (drawerOpen ? " sidebar--open" : "")}>
+          <div className="sidebar__drawerhead">
+            <span>Zones &amp; tools</span>
+            <button
+              className="btn tiny ghost"
+              onClick={() => setDrawerOpen(false)}
+              aria-label="Close menu"
+            >
+              ✕ Close
+            </button>
+          </div>
           <CollapsibleCard
             title="Your zones"
             open={openCards.zones}

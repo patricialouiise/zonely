@@ -75,6 +75,91 @@ body {
   min-width: 0; /* let the schedule grid scroll instead of overflowing */
 }
 
+/* mobile-only chrome (hidden on desktop) */
+.topbar { display: none; }
+.sidebar__drawerhead { display: none; }
+.drawer-backdrop { display: none; }
+
+@media (max-width: 999px) {
+  .app { padding-top: 0; }
+  .app__header { display: none; }
+
+  .topbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    position: sticky;
+    top: 0;
+    z-index: 40;
+    margin: 0 -14px 12px;
+    padding: 10px 14px;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+  }
+  .topbar__menu {
+    flex-shrink: 0;
+    font-size: 20px;
+    line-height: 1;
+    background: transparent;
+    border: 0;
+    color: var(--text);
+    cursor: pointer;
+    padding: 4px 6px;
+    border-radius: 8px;
+  }
+  .topbar__base {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 5px 12px;
+    font-size: 14px;
+    color: var(--text);
+    cursor: pointer;
+  }
+  .topbar__zone { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100px; }
+  .topbar__base b { font-weight: 700; flex-shrink: 0; }
+  .topbar__brand { margin-left: auto; flex-shrink: 0; font-weight: 800; font-size: 15px; }
+
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 88%;
+    max-width: 360px;
+    z-index: 60;
+    transform: translateX(-100%);
+    transition: transform 0.25s ease;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    background: var(--bg);
+    padding: 12px;
+    box-shadow: 0 0 40px rgba(0, 0, 0, 0.5);
+  }
+  .sidebar--open { transform: translateX(0); }
+
+  .drawer-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    background: rgba(0, 0, 0, 0.5);
+  }
+
+  .sidebar__drawerhead {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+    font-weight: 700;
+    font-size: 15px;
+  }
+}
+
 @media (min-width: 1000px) {
   .layout {
     display: grid;
