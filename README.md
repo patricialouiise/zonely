@@ -36,9 +36,12 @@ backend, nothing leaves your device.
   and one-click "Use … time" follow your itinerary.
 - **Backup & reset.** Export/Import your data as JSON to move between devices, or
   Clear all to start fresh.
+- **Share link.** One tap copies (or shares, via the native share sheet) a
+  compressed link that loads your schedule on another device — open it there and
+  Zonely offers to merge it in. No file, no account.
 - **Installable (PWA).** Add it to your home screen / desktop and it opens like a
-  native app and works **offline**. Data stays local per install (use Export/Import
-  to move it between devices).
+  native app and works **offline**. Data stays local per install (use Share or
+  Export/Import to move it between devices).
 
 ## Run locally
 

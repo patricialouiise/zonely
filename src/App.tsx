@@ -18,6 +18,7 @@ import {
   type Occurrence,
 } from "./lib/recurrence";
 import { legForDate } from "./lib/itinerary";
+import { encodeShare, decodeShare } from "./lib/share";
 import ZoneBar from "./components/ZoneBar";
 import ZonePicker from "./components/ZonePicker";
 import Converter from "./components/Converter";
@@ -30,6 +31,7 @@ import MeetingFinder from "./components/MeetingFinder";
 import TripEditor from "./components/TripEditor";
 import EventForm from "./components/EventForm";
 import ScopeDialog from "./components/ScopeDialog";
+import ReloadPrompt from "./components/ReloadPrompt";
 import { zoneById } from "./lib/zones";
 
 const PANELS_KEY = "tzp.panels.v1";
@@ -91,6 +93,44 @@ export default function App() {
     setSettings(s);
     setEvents(loadEvents());
     setSelectedDate(todayInZone(s.baseZoneId));
+  }, []);
+
+  // If opened via a share link (#data=…), offer to import it once, then strip
+  // the token from the URL so a refresh doesn't re-prompt.
+  useEffect(() => {
+    const match = window.location.hash.match(/[#&]data=([^&]+)/);
+    if (!match) return;
+    window.history.replaceState(null, "", window.location.pathname + window.location.search);
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await decodeShare(match[1]);
+        if (cancelled) return;
+        const preview = sanitizeEvents(
+          Array.isArray(data)
+            ? data
+            : (data as Record<string, unknown> | null)?.events
+        );
+        const ok = window.confirm(
+          `Import ${preview.length} event${preview.length === 1 ? "" : "s"} from this link? ` +
+            "It merges into your current data (matching events are overwritten)."
+        );
+        if (!ok || cancelled) return;
+        const result = importPayload(data);
+        flashNotice(
+          result
+            ? `Imported ${result.events} event${result.events === 1 ? "" : "s"}${
+                result.settings ? " + settings" : ""
+              }.`
+            : "That link didn't contain any data to import."
+        );
+      } catch {
+        if (!cancelled) flashNotice("That share link couldn't be read.");
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // Flip the hydration flag on a later tick, so the mount-time runs of the
@@ -249,6 +289,68 @@ export default function App() {
     flashNotice(`Exported ${events.length} event${events.length === 1 ? "" : "s"}.`);
   }
 
+  /**
+   * Merge a decoded backup/share payload into state. Imported events overwrite
+   * matching ids; settings replace wholesale. Returns a summary, or null when
+   * the payload held nothing usable.
+   */
+  function importPayload(data: unknown): { events: number; settings: boolean } | null {
+    const obj = data && typeof data === "object" ? (data as Record<string, unknown>) : null;
+    const valid = sanitizeEvents(Array.isArray(data) ? data : obj?.events);
+    const hasSettings = !!obj?.settings;
+    if (!valid.length && !hasSettings) return null;
+    setEvents((prev) => {
+      const byId = new Map(prev.map((ev) => [ev.id, ev]));
+      valid.forEach((ev) => byId.set(ev.id, ev));
+      return [...byId.values()];
+    });
+    if (hasSettings) {
+      const s = sanitizeSettings(obj.settings, DEFAULT_SETTINGS);
+      setSettings(s);
+      setSelectedDate(todayInZone(s.baseZoneId));
+    }
+    return { events: valid.length, settings: hasSettings };
+  }
+
+  // ---- Share: move data to another device via a link (no file, no backend) ----
+  async function shareData() {
+    let url: string;
+    try {
+      const token = await encodeShare({
+        app: "zonely",
+        version: 1,
+        exportedAt: new Date().toISOString(),
+        events,
+        settings,
+      });
+      url = `${window.location.origin}${window.location.pathname}#data=${token}`;
+    } catch {
+      flashNotice("Couldn't build a share link on this browser.");
+      return;
+    }
+    // Very large schedules blow past practical URL limits — fall back to Export.
+    if (url.length > 50000) {
+      flashNotice("Too much data for a link — use Export to move a file instead.");
+      return;
+    }
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: "Zonely", text: "My Zonely schedule", url });
+        return;
+      } catch (err) {
+        // User dismissed the share sheet — not an error, and don't fall through.
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        // Otherwise fall through to the clipboard path.
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(url);
+      flashNotice("Share link copied — open it on your other device to import.");
+    } catch {
+      flashNotice("Couldn't copy the link. Try Export instead.");
+    }
+  }
+
   function clearAll() {
     const ok = window.confirm(
       "Clear all events and reset settings to a blank slate? This can't be undone — export a backup first if you want to keep your data."
@@ -267,29 +369,14 @@ export default function App() {
     const reader = new FileReader();
     reader.onload = () => {
       try {
-        const data = JSON.parse(String(reader.result));
-        const valid = sanitizeEvents(Array.isArray(data) ? data : data?.events);
-        const hasSettings = data && typeof data === "object" && data.settings;
-        if (!valid.length && !hasSettings) {
+        const result = importPayload(JSON.parse(String(reader.result)));
+        if (!result) {
           flashNotice("No valid data found in that file.");
           return;
         }
-        // Merge events by id: imported events overwrite matching ids.
-        setEvents((prev) => {
-          const byId = new Map(prev.map((ev) => [ev.id, ev]));
-          valid.forEach((ev) => byId.set(ev.id, ev));
-          return [...byId.values()];
-        });
-        let importedSettings = false;
-        if (hasSettings) {
-          const s = sanitizeSettings(data.settings, DEFAULT_SETTINGS);
-          setSettings(s);
-          setSelectedDate(todayInZone(s.baseZoneId));
-          importedSettings = true;
-        }
         flashNotice(
-          `Imported ${valid.length} event${valid.length === 1 ? "" : "s"}${
-            importedSettings ? " + settings" : ""
+          `Imported ${result.events} event${result.events === 1 ? "" : "s"}${
+            result.settings ? " + settings" : ""
           }.`
         );
       } catch {
@@ -451,6 +538,13 @@ export default function App() {
                 Month
               </button>
             </div>
+            <button
+              className="btn ghost"
+              onClick={shareData}
+              title="Copy a link that loads this data on another device"
+            >
+              Share
+            </button>
             <button className="btn ghost" onClick={exportData} title="Download a backup file">
               Export
             </button>
@@ -618,6 +712,8 @@ export default function App() {
           }}
         />
       )}
+
+      <ReloadPrompt />
     </div>
   );
 }
