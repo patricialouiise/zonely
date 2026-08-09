@@ -14,10 +14,12 @@
  * the client can show a clear "sync isn't set up" message instead of hanging.
  */
 
-const REST_URL =
-  process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL || "";
-const REST_TOKEN =
-  process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN || "";
+// Read env without depending on @types/node (the function is compiled without
+// Node types in some build contexts): reach the vars through globalThis.
+const env = ((globalThis as { process?: { env?: Record<string, string | undefined> } })
+  .process?.env ?? {}) as Record<string, string | undefined>;
+const REST_URL = env.KV_REST_API_URL || env.UPSTASH_REDIS_REST_URL || "";
+const REST_TOKEN = env.KV_REST_API_TOKEN || env.UPSTASH_REDIS_REST_TOKEN || "";
 
 // storageId is base64url of 16 bytes -> ~22 chars; allow a little slack.
 const ID_RE = /^[A-Za-z0-9_-]{16,64}$/;
