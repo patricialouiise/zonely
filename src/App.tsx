@@ -33,6 +33,27 @@ import EventForm from "./components/EventForm";
 import ScopeDialog from "./components/ScopeDialog";
 import { zoneById } from "./lib/zones";
 
+const PANELS_KEY = "tzp.panels.v1";
+type PanelKey = "zones" | "work" | "meeting" | "convert" | "trip";
+const DEFAULT_PANELS: Record<PanelKey, boolean> = {
+  zones: false,
+  work: false,
+  meeting: false,
+  convert: false,
+  trip: false,
+};
+
+/** Sidebar cards start collapsed; the open/closed state is remembered. */
+function loadPanels(): Record<PanelKey, boolean> {
+  try {
+    const raw = localStorage.getItem(PANELS_KEY);
+    if (!raw) return DEFAULT_PANELS;
+    return { ...DEFAULT_PANELS, ...JSON.parse(raw) };
+  } catch {
+    return DEFAULT_PANELS;
+  }
+}
+
 /** A recurring change awaiting the user's this/following/all choice. */
 type PendingScope =
   | { kind: "edit"; occ: Occurrence; draft: EventDraft }
@@ -51,14 +72,9 @@ export default function App() {
   const [editingOcc, setEditingOcc] = useState<Occurrence | null>(null);
   const [createDefaults, setCreateDefaults] = useState<CreateAt | null>(null);
   const [pending, setPending] = useState<PendingScope | null>(null);
-  const [openCards, setOpenCards] = useState({
-    zones: true,
-    work: true,
-    meeting: true,
-    convert: true,
-    trip: false,
-  });
+  const [openCards, setOpenCards] = useState<Record<PanelKey, boolean>>(loadPanels);
   const [notice, setNotice] = useState<string | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const hydrated = useRef(false);
 
@@ -140,6 +156,13 @@ export default function App() {
   useEffect(() => {
     if (hydrated.current) saveEvents(events);
   }, [events]);
+  useEffect(() => {
+    try {
+      localStorage.setItem(PANELS_KEY, JSON.stringify(openCards));
+    } catch {
+      /* ignore */
+    }
+  }, [openCards]);
 
   const leg = useMemo(
     () => (selectedDate ? legForDate(selectedDate, settings.trip) : null),
@@ -374,8 +397,28 @@ export default function App() {
 
   if (!selectedDate) return null; // wait for mount init
 
+  const baseZone = settings.zones.find((z) => z.id === settings.baseZoneId);
+
   return (
     <div className="app">
+      <div className="topbar">
+        <button
+          className="topbar__menu"
+          onClick={() => setDrawerOpen(true)}
+          aria-label="Open zones & tools"
+        >
+          ☰
+        </button>
+        <button className="topbar__base" onClick={() => setDrawerOpen(true)} title="Zones & tools">
+          <span className="flag">{baseZone?.flag}</span>
+          <span className="topbar__zone">{baseZone?.label}</span>
+          <b>{now.setZone(settings.baseZoneId).toFormat("h:mm a")}</b>
+        </button>
+        <span className="topbar__brand">🌐 Zonely</span>
+      </div>
+
+      {drawerOpen && <div className="drawer-backdrop" onClick={() => setDrawerOpen(false)} />}
+
       <header className="app__header">
         <div>
           <h1>🌐 Zonely</h1>
@@ -387,7 +430,17 @@ export default function App() {
       </header>
 
       <div className="layout">
-        <aside className="sidebar">
+        <aside className={"sidebar" + (drawerOpen ? " sidebar--open" : "")}>
+          <div className="sidebar__drawerhead">
+            <span>Zones &amp; tools</span>
+            <button
+              className="btn tiny ghost"
+              onClick={() => setDrawerOpen(false)}
+              aria-label="Close menu"
+            >
+              ✕ Close
+            </button>
+          </div>
           <CollapsibleCard
             title="Your zones"
             open={openCards.zones}
