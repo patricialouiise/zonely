@@ -111,7 +111,10 @@ export default function App() {
   const syncRef = useRef<SyncConfig | null>(sync);
   syncRef.current = sync;
   const localUpdatedAt = useRef<number>(loadUpdatedAt());
-  const suppressPush = useRef(false); // set when applying remote data, to avoid an echo push
+  // Signature of the last events+settings we consider "already known" (loaded,
+  // adopted from cloud, or just pushed). A change away from it is a genuine
+  // user edit; matching it (the initial load, or remote-applied data) is not.
+  const syncSignature = useRef<string | null>(null);
   const pushTimer = useRef<number | null>(null);
 
   function flashNotice(msg: string) {
@@ -125,9 +128,13 @@ export default function App() {
   // Load persisted state on mount.
   useEffect(() => {
     const s = loadSettings();
+    const ev = loadEvents();
     setSettings(s);
-    setEvents(loadEvents());
+    setEvents(ev);
     setSelectedDate(todayInZone(s.baseZoneId));
+    // Seed the sync baseline to the loaded state so it's never mistaken for a
+    // user edit (which would push it up and clobber a newer cloud copy).
+    syncSignature.current = JSON.stringify([ev, s]);
   }, []);
 
   // If opened via a share link (#data=…), offer to import it once, then strip
@@ -223,15 +230,17 @@ export default function App() {
     saveSyncConfig(updated);
   }
 
-  // Apply a remote document to local state without provoking an echo push.
+  // Apply a remote document to local state. Recording the new signature first
+  // means the change effect recognizes it as already-known and won't push it back.
   function adoptRemote(remote: {
     events: CalEvent[];
     settings: AppSettings | null;
     updatedAt: number;
   }) {
-    suppressPush.current = true;
     localUpdatedAt.current = remote.updatedAt;
     saveUpdatedAt(remote.updatedAt);
+    const nextSettings = remote.settings ?? settingsRef.current;
+    syncSignature.current = JSON.stringify([remote.events, nextSettings]);
     setEvents(remote.events);
     if (remote.settings) {
       setSettings(remote.settings);
@@ -318,9 +327,9 @@ export default function App() {
         }
       }
       const now = Date.now();
-      suppressPush.current = true;
       localUpdatedAt.current = now;
       saveUpdatedAt(now);
+      syncSignature.current = JSON.stringify([mergedEvents, mergedSettings]);
       setEvents(mergedEvents);
       setSettings(mergedSettings);
       setSelectedDate(todayInZone(mergedSettings.baseZoneId));
@@ -367,13 +376,17 @@ export default function App() {
   }
 
   // Bump the last-write clock on genuine user changes and, when sync is on,
-  // push them up (debounced). Skips the mount load and remote-applied changes.
+  // push them up (debounced). The first settled state after load just seeds the
+  // baseline; loaded and remote-applied data match the signature and never push.
   useEffect(() => {
     if (!hydrated.current) return;
-    if (suppressPush.current) {
-      suppressPush.current = false;
+    const sig = JSON.stringify([events, settings]);
+    if (syncSignature.current === null) {
+      syncSignature.current = sig; // baseline from the initial load
       return;
     }
+    if (sig === syncSignature.current) return; // no real change (or remote-applied)
+    syncSignature.current = sig;
     localUpdatedAt.current = Date.now();
     saveUpdatedAt(localUpdatedAt.current);
     if (syncRef.current) schedulePush();
