@@ -75,6 +75,26 @@ body {
   min-width: 0; /* let the schedule grid scroll instead of overflowing */
 }
 
+/* ---- sync card ---- */
+.sync { display: flex; flex-direction: column; gap: 10px; }
+.sync__field { gap: 6px; }
+.sync__inputrow { display: flex; gap: 6px; align-items: stretch; }
+.sync__inputrow input { flex: 1; min-width: 0; }
+.sync__actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.sync__status { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; color: var(--text); }
+.sync__dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; background: var(--muted); }
+.sync__status--idle .sync__dot { background: #16a34a; }
+.sync__status--syncing .sync__dot { background: var(--accent); animation: sync-pulse 1s ease-in-out infinite; }
+.sync__status--error .sync__dot { background: var(--danger); }
+.sync__status--error { color: var(--danger); }
+
+.sync-badge { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: var(--muted); }
+.sync-badge--idle { background: #16a34a; }
+.sync-badge--syncing { background: var(--accent); animation: sync-pulse 1s ease-in-out infinite; }
+.sync-badge--error { background: var(--danger); }
+
+@keyframes sync-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+
 /* service-worker update toast */
 .sw-toast {
   position: fixed;

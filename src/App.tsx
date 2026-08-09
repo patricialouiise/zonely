@@ -19,6 +19,23 @@ import {
 } from "./lib/recurrence";
 import { legForDate } from "./lib/itinerary";
 import { encodeShare, decodeShare } from "./lib/share";
+import {
+  type SyncConfig,
+  type SyncDoc,
+  deriveKeys,
+  encryptDoc,
+  decryptDoc,
+  pullBlob,
+  pushBlob,
+  sanitizeDoc,
+  mergeEventsById,
+  loadSyncConfig,
+  saveSyncConfig,
+  clearSyncConfig,
+  loadUpdatedAt,
+  saveUpdatedAt,
+  SyncUnconfigured,
+} from "./lib/sync";
 import ZoneBar from "./components/ZoneBar";
 import ZonePicker from "./components/ZonePicker";
 import Converter from "./components/Converter";
@@ -32,16 +49,18 @@ import TripEditor from "./components/TripEditor";
 import EventForm from "./components/EventForm";
 import ScopeDialog from "./components/ScopeDialog";
 import ReloadPrompt from "./components/ReloadPrompt";
+import SyncCard, { type SyncStatus } from "./components/SyncCard";
 import { zoneById } from "./lib/zones";
 
 const PANELS_KEY = "tzp.panels.v1";
-type PanelKey = "zones" | "work" | "meeting" | "convert" | "trip";
+type PanelKey = "zones" | "work" | "meeting" | "convert" | "trip" | "sync";
 const DEFAULT_PANELS: Record<PanelKey, boolean> = {
   zones: false,
   work: false,
   meeting: false,
   convert: false,
   trip: false,
+  sync: false,
 };
 
 /** Sidebar cards start collapsed; the open/closed state is remembered. */
@@ -76,8 +95,24 @@ export default function App() {
   const [openCards, setOpenCards] = useState<Record<PanelKey, boolean>>(loadPanels);
   const [notice, setNotice] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [sync, setSync] = useState<SyncConfig | null>(loadSyncConfig);
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>("idle");
+  const [syncMessage, setSyncMessage] = useState<string | undefined>(undefined);
+  const [syncBusy, setSyncBusy] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const hydrated = useRef(false);
+
+  // Mirrors of state + config for use inside async sync callbacks and timers,
+  // which would otherwise close over stale values.
+  const eventsRef = useRef(events);
+  eventsRef.current = events;
+  const settingsRef = useRef(settings);
+  settingsRef.current = settings;
+  const syncRef = useRef<SyncConfig | null>(sync);
+  syncRef.current = sync;
+  const localUpdatedAt = useRef<number>(loadUpdatedAt());
+  const suppressPush = useRef(false); // set when applying remote data, to avoid an echo push
+  const pushTimer = useRef<number | null>(null);
 
   function flashNotice(msg: string) {
     setNotice(msg);
@@ -164,6 +199,193 @@ export default function App() {
       /* ignore */
     }
   }, [openCards]);
+
+  // ---- Cross-device sync (end-to-end encrypted, passphrase-based) ----
+  function setSyncError(err: unknown, surface = false) {
+    let msg = "Couldn't reach sync — will retry.";
+    if (err instanceof SyncUnconfigured) msg = "Sync isn't set up on the server yet.";
+    else if (err instanceof DOMException && err.name === "OperationError")
+      msg = "That passphrase doesn't match the data already synced under it.";
+    else if (err instanceof Error && err.message) msg = err.message;
+    setSyncStatus("error");
+    setSyncMessage(msg);
+    if (surface) flashNotice(msg);
+  }
+
+  function markSynced() {
+    setSyncStatus("idle");
+    setSyncMessage(undefined);
+    const cfg = syncRef.current;
+    if (!cfg) return;
+    const updated = { ...cfg, lastSyncedAt: Date.now() };
+    syncRef.current = updated;
+    setSync(updated);
+    saveSyncConfig(updated);
+  }
+
+  // Apply a remote document to local state without provoking an echo push.
+  function adoptRemote(remote: {
+    events: CalEvent[];
+    settings: AppSettings | null;
+    updatedAt: number;
+  }) {
+    suppressPush.current = true;
+    localUpdatedAt.current = remote.updatedAt;
+    saveUpdatedAt(remote.updatedAt);
+    setEvents(remote.events);
+    if (remote.settings) {
+      setSettings(remote.settings);
+      setSelectedDate(todayInZone(remote.settings.baseZoneId));
+    }
+  }
+
+  async function doPush() {
+    const cfg = syncRef.current;
+    if (!cfg) return;
+    setSyncStatus("syncing");
+    try {
+      const doc: SyncDoc = {
+        app: "zonely",
+        version: 1,
+        updatedAt: localUpdatedAt.current,
+        events: eventsRef.current,
+        settings: settingsRef.current,
+      };
+      await pushBlob(cfg.storageId, await encryptDoc(cfg.keyB64, doc));
+      markSynced();
+    } catch (err) {
+      setSyncError(err);
+    }
+  }
+
+  function schedulePush() {
+    if (pushTimer.current) window.clearTimeout(pushTimer.current);
+    pushTimer.current = window.setTimeout(() => {
+      pushTimer.current = null;
+      void doPush();
+    }, 1500);
+  }
+
+  // Pull the cloud copy; adopt it if newer (this is how deletions propagate),
+  // otherwise push ours up so the cloud has the latest.
+  async function doPull() {
+    const cfg = syncRef.current;
+    if (!cfg) return;
+    setSyncStatus("syncing");
+    try {
+      const blob = await pullBlob(cfg.storageId);
+      if (!blob) {
+        await doPush();
+        return;
+      }
+      const remote = sanitizeDoc(await decryptDoc(cfg.keyB64, blob));
+      if (remote.updatedAt > localUpdatedAt.current) {
+        adoptRemote(remote);
+        markSynced();
+      } else if (remote.updatedAt < localUpdatedAt.current) {
+        await doPush();
+      } else {
+        markSynced();
+      }
+    } catch (err) {
+      setSyncError(err);
+    }
+  }
+
+  // Turn sync on / connect this device. Unions events with any existing cloud
+  // copy so joining two populated devices never drops data.
+  async function connectSync(passphrase: string) {
+    setSyncBusy(true);
+    setSyncStatus("syncing");
+    setSyncMessage(undefined);
+    try {
+      const { storageId, keyB64 } = await deriveKeys(passphrase);
+      let mergedEvents = eventsRef.current;
+      let mergedSettings = settingsRef.current;
+      const blob = await pullBlob(storageId);
+      if (blob) {
+        let remote;
+        try {
+          remote = sanitizeDoc(await decryptDoc(keyB64, blob));
+        } catch {
+          throw new Error(
+            "A different passphrase already uses a similar code (or the data is corrupt). Pick a longer, more unique phrase."
+          );
+        }
+        mergedEvents = mergeEventsById(eventsRef.current, remote.events);
+        if (remote.settings && remote.updatedAt > localUpdatedAt.current) {
+          mergedSettings = remote.settings;
+        }
+      }
+      const now = Date.now();
+      suppressPush.current = true;
+      localUpdatedAt.current = now;
+      saveUpdatedAt(now);
+      setEvents(mergedEvents);
+      setSettings(mergedSettings);
+      setSelectedDate(todayInZone(mergedSettings.baseZoneId));
+
+      const cfg: SyncConfig = { storageId, keyB64, lastSyncedAt: now };
+      syncRef.current = cfg;
+      setSync(cfg);
+      saveSyncConfig(cfg);
+
+      const doc: SyncDoc = {
+        app: "zonely",
+        version: 1,
+        updatedAt: now,
+        events: mergedEvents,
+        settings: mergedSettings,
+      };
+      await pushBlob(storageId, await encryptDoc(keyB64, doc));
+      markSynced();
+      flashNotice(
+        blob
+          ? `Sync on — ${mergedEvents.length} event${
+              mergedEvents.length === 1 ? "" : "s"
+            } merged across your devices.`
+          : "Sync on — this device is the source. Use the same phrase elsewhere to connect it."
+      );
+    } catch (err) {
+      setSyncError(err, true);
+    } finally {
+      setSyncBusy(false);
+    }
+  }
+
+  function disconnectSync() {
+    if (pushTimer.current) {
+      window.clearTimeout(pushTimer.current);
+      pushTimer.current = null;
+    }
+    clearSyncConfig();
+    syncRef.current = null;
+    setSync(null);
+    setSyncStatus("idle");
+    setSyncMessage(undefined);
+    flashNotice("Sync turned off on this device. Your data stays here.");
+  }
+
+  // Bump the last-write clock on genuine user changes and, when sync is on,
+  // push them up (debounced). Skips the mount load and remote-applied changes.
+  useEffect(() => {
+    if (!hydrated.current) return;
+    if (suppressPush.current) {
+      suppressPush.current = false;
+      return;
+    }
+    localUpdatedAt.current = Date.now();
+    saveUpdatedAt(localUpdatedAt.current);
+    if (syncRef.current) schedulePush();
+  }, [events, settings]);
+
+  // On mount, if sync is configured, pull the cloud copy once hydrated.
+  useEffect(() => {
+    if (!syncRef.current) return;
+    const t = setTimeout(() => void doPull(), 150);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const leg = useMemo(
     () => (selectedDate ? legForDate(selectedDate, settings.trip) : null),
@@ -509,6 +731,34 @@ export default function App() {
               defaultDate={selectedDate}
               defaultZoneId={settings.baseZoneId}
               onChange={(trip) => updateSettings({ trip })}
+            />
+          </CollapsibleCard>
+
+          <CollapsibleCard
+            title="Sync across devices"
+            open={openCards.sync}
+            onToggle={() => toggleCard("sync")}
+            accessory={
+              sync ? (
+                <span
+                  className={"sync-badge sync-badge--" + syncStatus}
+                  title={
+                    syncStatus === "error" ? syncMessage : syncStatus === "syncing" ? "Syncing…" : "Synced"
+                  }
+                  aria-hidden="true"
+                />
+              ) : undefined
+            }
+          >
+            <SyncCard
+              connected={!!sync}
+              status={syncStatus}
+              message={syncMessage}
+              lastSyncedAt={sync?.lastSyncedAt ?? 0}
+              busy={syncBusy}
+              onConnect={connectSync}
+              onDisconnect={disconnectSync}
+              onSyncNow={doPull}
             />
           </CollapsibleCard>
         </aside>

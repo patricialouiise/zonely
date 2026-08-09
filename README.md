@@ -36,6 +36,11 @@ backend, nothing leaves your device.
   and one-click "Use … time" follow your itinerary.
 - **Backup & reset.** Export/Import your data as JSON to move between devices, or
   Clear all to start fresh.
+- **Sync across devices.** Turn on sync with a secret passphrase and your schedule
+  stays in step between web and your installed app — pulls on open, pushes on change.
+  It's **end-to-end encrypted** in the browser (PBKDF2 + AES-GCM); the server only
+  ever stores ciphertext, never your passphrase or events. Type the same phrase on
+  another device to connect it. Requires a Vercel KV / Upstash store (see below).
 - **Share link.** One tap copies (or shares, via the native share sheet) a
   compressed link that loads your schedule on another device — open it there and
   Zonely offers to merge it in. No file, no account.
@@ -61,6 +66,20 @@ npm run build      # type-checks then builds to dist/
 It's a static site — deploy `dist/` anywhere. This one runs on Vercel; with the
 Vercel CLI you can `vercel --prod` from the project root, or connect the GitHub repo
 in the Vercel dashboard for automatic deploys on push.
+
+## Sync setup (Vercel KV / Upstash)
+
+Sync needs a tiny key/value store to hold the encrypted blobs. One-time setup:
+
+1. In the Vercel dashboard, open the project → **Storage** → **Create** → a Redis
+   (Upstash) / KV store, and **Connect** it to this project. Vercel injects
+   `KV_REST_API_URL` and `KV_REST_API_TOKEN` as environment variables.
+2. Redeploy (`vercel deploy --prod`) so the `api/sync` function picks up the vars.
+
+That's it — no schema, no accounts. The function (`api/sync.ts`) is a dumb encrypted
+key/value box; all crypto happens client-side (`src/lib/sync.ts`). Until a store is
+connected, the app shows "Sync isn't set up on the server yet." and everything else
+keeps working locally.
 
 ## Tech
 
