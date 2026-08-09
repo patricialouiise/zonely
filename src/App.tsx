@@ -387,6 +387,28 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Re-pull whenever the app comes back to the foreground (tab refocus / PWA
+  // resume), so an already-open device catches edits made elsewhere without a
+  // manual "Sync now". Throttled, and skipped while a local edit is pending.
+  useEffect(() => {
+    let lastPull = 0;
+    const maybePull = () => {
+      if (document.visibilityState !== "visible") return;
+      if (!syncRef.current || pushTimer.current) return;
+      const now = Date.now();
+      if (now - lastPull < 3000) return;
+      lastPull = now;
+      void doPull();
+    };
+    document.addEventListener("visibilitychange", maybePull);
+    window.addEventListener("focus", maybePull);
+    return () => {
+      document.removeEventListener("visibilitychange", maybePull);
+      window.removeEventListener("focus", maybePull);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const leg = useMemo(
     () => (selectedDate ? legForDate(selectedDate, settings.trip) : null),
     [selectedDate, settings.trip]
