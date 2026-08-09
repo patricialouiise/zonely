@@ -7,7 +7,10 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      registerType: "autoUpdate",
+      // "prompt" installs the new service worker but waits to activate it,
+      // so a background deploy never force-reloads the page and discards
+      // in-progress event edits that haven't hit localStorage yet.
+      registerType: "prompt",
       includeAssets: [
         "favicon.ico",
         "icon.svg",
@@ -27,7 +30,6 @@ export default defineConfig({
         icons: [
           { src: "pwa-192x192.png", sizes: "192x192", type: "image/png" },
           { src: "pwa-512x512.png", sizes: "512x512", type: "image/png" },
-          { src: "pwa-512x512.png", sizes: "512x512", type: "image/png", purpose: "any" },
           {
             src: "maskable-icon-512x512.png",
             sizes: "512x512",
