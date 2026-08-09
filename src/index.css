@@ -75,6 +75,27 @@ body {
   min-width: 0; /* let the schedule grid scroll instead of overflowing */
 }
 
+/* service-worker update toast */
+.sw-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 20px;
+  transform: translateX(-50%);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  max-width: calc(100vw - 28px);
+  padding: 10px 14px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  font-size: 14px;
+}
+.sw-toast__msg { color: var(--text); }
+.sw-toast__actions { display: flex; gap: 8px; flex-shrink: 0; }
+
 /* mobile-only chrome (hidden on desktop) */
 .topbar { display: none; }
 .sidebar__drawerhead { display: none; }

@@ -31,6 +31,7 @@ import MeetingFinder from "./components/MeetingFinder";
 import TripEditor from "./components/TripEditor";
 import EventForm from "./components/EventForm";
 import ScopeDialog from "./components/ScopeDialog";
+import ReloadPrompt from "./components/ReloadPrompt";
 import { zoneById } from "./lib/zones";
 
 const PANELS_KEY = "tzp.panels.v1";
@@ -711,6 +712,8 @@ export default function App() {
           }}
         />
       )}
+
+      <ReloadPrompt />
     </div>
   );
 }
