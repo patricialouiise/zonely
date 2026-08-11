@@ -432,6 +432,17 @@ export default function App() {
     setSettings((s) => ({ ...s, ...patch }));
   }
 
+  // Remove a zone, reassigning the base zone if the removed one was it. Never
+  // removes the last remaining zone.
+  function removeZone(id: string) {
+    setSettings((s) => {
+      if (s.zones.length <= 1) return s;
+      const zones = s.zones.filter((z) => z.id !== id);
+      const baseZoneId = s.baseZoneId === id ? zones[0].id : s.baseZoneId;
+      return { ...s, zones, baseZoneId };
+    });
+  }
+
   function shiftDay(delta: number) {
     setSelectedDate((d) => DateTime.fromISO(d).plus({ days: delta }).toFormat("yyyy-LL-dd"));
   }
@@ -704,13 +715,18 @@ export default function App() {
             open={openCards.zones}
             onToggle={() => toggleCard("zones")}
           >
-            <ZonePicker zones={settings.zones} onChange={(zones) => updateSettings({ zones })} />
-            <p className="muted small hint">Tap a zone to make it your base.</p>
+            <ZonePicker
+              zones={settings.zones}
+              onChange={(zones) => updateSettings({ zones })}
+              onRemove={removeZone}
+            />
+            <p className="muted small hint">Tap a zone to make it your base · ✕ to remove.</p>
             <ZoneBar
               zones={settings.zones}
               now={now}
               baseZoneId={settings.baseZoneId}
               onSetBase={(id) => updateSettings({ baseZoneId: id })}
+              onRemove={removeZone}
             />
           </CollapsibleCard>
 

@@ -219,7 +219,7 @@ body {
     align-items: center;
     row-gap: 0;
     column-gap: 8px;
-    padding: 10px 12px;
+    padding: 10px 34px 10px 12px;
   }
   .sidebar .zonecard__label { grid-column: 1; }
   .sidebar .zonecard__time { grid-column: 2; grid-row: 1 / 3; font-size: 22px; text-align: right; }
@@ -355,7 +355,30 @@ input:focus, select:focus {
 .chip__x:hover { color: var(--danger); }
 
 .zonebar { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
-.zonecard { background: var(--panel-2); border: 1px solid var(--border); border-radius: 12px; padding: 12px; font: inherit; color: inherit; text-align: left; width: 100%; cursor: pointer; transition: border-color 0.12s ease, background 0.12s ease; }
+.zonecard-wrap { position: relative; display: flex; }
+.zonecard-wrap > .zonecard { width: 100%; }
+.zonecard__remove {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  font-size: 17px;
+  line-height: 1;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--panel);
+  color: var(--muted);
+  cursor: pointer;
+  z-index: 2;
+  transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+}
+.zonecard__remove:hover { background: var(--danger); border-color: var(--danger); color: #fff; }
+.zonecard { background: var(--panel-2); border: 1px solid var(--border); border-radius: 12px; padding: 12px; padding-right: 34px; font: inherit; color: inherit; text-align: left; width: 100%; cursor: pointer; transition: border-color 0.12s ease, background 0.12s ease; }
 .zonecard:hover { border-color: var(--accent); background: var(--panel); }
 .zonecard--base { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
 .zonecard__label { font-size: 13px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
