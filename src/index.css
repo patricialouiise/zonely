@@ -55,7 +55,7 @@ body {
 }
 
 .app {
-  max-width: 1500px;
+  max-width: 1680px;
   margin: 0 auto;
   padding: 20px 14px 60px;
   display: flex;
@@ -435,7 +435,7 @@ input:focus, select:focus {
 .dayview__gutter { border-left: 0; }
 .hourline { position: absolute; left: 0; right: 0; border-top: 1px solid var(--border); }
 .hourlabel { position: absolute; top: -8px; left: 6px; font-size: 11px; color: var(--muted); background: var(--panel-2); padding: 0 3px; }
-.hourlabel.faint { opacity: 0.6; right: 6px; left: auto; }
+.hourlabel.faint { opacity: 0.55; right: 5px; left: auto; font-size: 10px; padding: 0 2px; }
 .bandshade { position: absolute; left: 2px; right: 2px; background: var(--band); border-radius: 6px; pointer-events: none; }
 .eventblock { position: absolute; background: var(--accent); color: #fff; border: 0; border-radius: 7px; padding: 3px 6px; text-align: left; cursor: grab; overflow: hidden; display: flex; flex-direction: column; box-shadow: var(--shadow); touch-action: none; user-select: none; }
 .eventblock:hover { filter: brightness(1.05); }

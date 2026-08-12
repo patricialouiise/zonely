@@ -76,7 +76,7 @@ export default function DayView({
   const showNow = now >= windowStart && now < windowEnd;
   const nowTop = showNow ? (minutesFromWindow(now, windowStart) / 60) * HOUR_H : 0;
 
-  const cols = `62px repeat(${zones.length}, minmax(120px, 1fr))`;
+  const cols = `62px repeat(${zones.length}, minmax(150px, 1fr))`;
   const baseZone = zones.find((z) => z.id === baseZoneId);
 
   return (
@@ -183,7 +183,9 @@ export default function DayView({
                   HOUR_H
                 );
                 const isDragging = drag?.id === ev.id;
-                const place = placementCss(placements.get(occ)!);
+                // Reserve a wider right strip so the per-zone hour labels and the
+                // click-to-add space stay visible instead of being covered.
+                const place = placementCss(placements.get(occ)!, 42);
                 return (
                   <EventBlock
                     key={occ.key}
